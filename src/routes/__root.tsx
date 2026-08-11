@@ -78,19 +78,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "KC Meeting — Secure Organizational Meetings" },
+      { title: "Sign in — KC Meeting" },
       {
         name: "description",
         content:
-          "KC Meeting is a secure broadcast meeting platform: one account, one login, one click into the live meeting.",
+          "Sign in to KC Meeting with your church email or KC Handle and go straight into the live meeting.",
       },
-      { property: "og:title", content: "KC Meeting" },
+      { property: "og:title", content: "Sign in — KC Meeting" },
       {
         property: "og:description",
-        content: "Secure organizational meetings with automatic attendance and live engagement.",
+        content: "Sign in to KC Meeting with your church email or KC Handle and go straight into the live meeting.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Sign in — KC Meeting" },
+      { name: "twitter:description", content: "Sign in to KC Meeting with your church email or KC Handle and go straight into the live meeting." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/adbff962-2b51-4705-9f24-a8d876196eb0" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/adbff962-2b51-4705-9f24-a8d876196eb0" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

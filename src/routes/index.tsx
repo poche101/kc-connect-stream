@@ -26,7 +26,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "Sign in — KC Meeting" },
       {
         property: "og:description",
-        content: "One account. One login. One click into the meeting.",
+        content: "Sign in to KC Meeting with your church email or KC Handle and go straight into the live meeting.",
       },
     ],
   }),
