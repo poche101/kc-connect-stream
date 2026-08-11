@@ -204,7 +204,11 @@ function MeetingsPanel() {
     key: "chat_enabled" | "questions_enabled" | "hand_raise_enabled",
     value: boolean,
   ) {
-    const { error } = await supabase.from("meetings").update({ [key]: value }).eq("id", meeting.id);
+    const patch: Database["public"]["Tables"]["meetings"]["Update"] = {};
+    if (key === "chat_enabled") patch.chat_enabled = value;
+    if (key === "questions_enabled") patch.questions_enabled = value;
+    if (key === "hand_raise_enabled") patch.hand_raise_enabled = value;
+    const { error } = await supabase.from("meetings").update(patch).eq("id", meeting.id);
     if (error) return showError(error, "Could not update meeting");
     void load();
   }
