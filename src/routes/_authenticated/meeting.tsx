@@ -208,7 +208,8 @@ function MeetingPage() {
       meeting_id: meeting.id,
       user_id: session.userId,
       message,
-      ...identity,
+      display_name: identity.display_name,
+      church_name: identity.church_name,
     });
     if (error) showError(error, "Message not sent");
   }
