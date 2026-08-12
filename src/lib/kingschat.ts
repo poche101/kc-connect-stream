@@ -4,11 +4,15 @@ import kingschatLogo from "@/assets/kingschat-logo.png.asset.json";
 export const KINGSCHAT_LOGO_URL = kingschatLogo.url;
 
 /**
- * KingsChat OAuth client id. This is a publishable value: register your app at
- * developer.kingsch.at, then expose the id as VITE_KINGSCHAT_CLIENT_ID.
+ * KingsChat OAuth client id — a publishable value configured through the
+ * VITE_KINGSCHAT_CLIENT_ID setting (see .env). The fallback keeps the button
+ * working if the setting is ever missing at build time.
  */
+const FALLBACK_CLIENT_ID = "vfO1QTdSNMJxvyKaoW5kJp/7vts2JSuyI7g0PRyeKQY=";
+
 export const KINGSCHAT_CLIENT_ID: string =
-  (import.meta.env["VITE_KINGSCHAT_CLIENT_ID"] as string | undefined) ?? "";
+  ((import.meta.env["VITE_KINGSCHAT_CLIENT_ID"] as string | undefined) ?? "").trim() ||
+  FALLBACK_CLIENT_ID;
 
 export const KINGSCHAT_ACCOUNTS_URL = "https://accounts.kingsch.at";
 
