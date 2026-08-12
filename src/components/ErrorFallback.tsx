@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { AlertOctagon, RotateCcw, Home } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { reportLovableError } from "@/lib/../lib/lovable-error-reporting";
+import { reportLovableError } from "@/lib/lovable-error-reporting";
 
 /**
  * Global, centered error fallback. Rendered whenever an uncaught error reaches
