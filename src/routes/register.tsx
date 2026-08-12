@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -15,23 +15,20 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { checkKcHandle } from "@/lib/auth.functions";
 import { showError } from "@/lib/app-error";
-import { KINGSCHAT_LOGO_URL } from "@/lib/kingschat";
 import { toast } from "sonner";
 
-const TITLES = ["Pastor", "Deacon", "Deaconess", "Brother", "Sister", "Evangelist", "Mr", "Mrs", "Dr"];
-
-type Church = { id: string; name: string; branch: string | null };
+const TITLES = ["Brother", "Sister", "Pastor", "Deacon", "Deaconess"];
 
 export const Route = createFileRoute("/register")({
   head: () => ({
     meta: [
-      { title: "Create your account — KC Meeting" },
+      { title: "Create your account — Pantheon" },
       {
         name: "description",
         content:
-          "Register for KC Meeting with your church details and unique KC Handle to join live organizational meetings.",
+          "Register for Pantheon with your church details and unique KC Handle to join live organizational meetings.",
       },
-      { property: "og:title", content: "Create your account — KC Meeting" },
+      { property: "og:title", content: "Create your account — Pantheon" },
       {
         property: "og:description",
         content: "Register with your church details and KC Handle to join live meetings.",
@@ -43,31 +40,18 @@ export const Route = createFileRoute("/register")({
 
 function RegisterPage() {
   const navigate = useNavigate();
-  const [churches, setChurches] = useState<Church[]>([]);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     title: "",
     firstName: "",
     lastName: "",
     phone: "",
-    churchId: "",
+    churchName: "",
     churchEmail: "",
     kcHandle: "",
     password: "",
     confirmPassword: "",
   });
-
-  useEffect(() => {
-    void supabase
-      .from("churches")
-      .select("id, name, branch")
-      .eq("status", "active")
-      .order("name")
-      .then(({ data, error }) => {
-        if (error) showError(error, "Could not load churches");
-        else setChurches(data ?? []);
-      });
-  }, []);
 
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -82,7 +66,7 @@ function RegisterPage() {
       ["First name", form.firstName],
       ["Last name", form.lastName],
       ["Phone number", form.phone],
-      ["Church", form.churchId],
+      ["Church", form.churchName],
       ["Church email", form.churchEmail],
       ["KC Handle", form.kcHandle],
       ["Password", form.password],
@@ -109,7 +93,6 @@ function RegisterPage() {
         return;
       }
 
-      const church = churches.find((c) => c.id === form.churchId);
       const { error } = await supabase.auth.signUp({
         email: form.churchEmail.trim(),
         password: form.password,
@@ -120,8 +103,7 @@ function RegisterPage() {
             first_name: form.firstName.trim(),
             last_name: form.lastName.trim(),
             phone: form.phone.trim(),
-            church_id: form.churchId,
-            church_name: church ? [church.name, church.branch].filter(Boolean).join(" — ") : "",
+            church_name: form.churchName.trim(),
             kc_handle: form.kcHandle.trim(),
           },
         },
@@ -138,130 +120,126 @@ function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background px-6 py-12">
+    <main className="min-h-screen bg-background px-5 py-12">
       <div className="mx-auto w-full max-w-2xl">
         <div className="flex flex-col items-center text-center">
-          <img src={KINGSCHAT_LOGO_URL} alt="" className="size-14 rounded-2xl" />
+          <img src="/pwa-icon-192.png" alt="" className="size-14 rounded-2xl" />
+          <span className="mt-3 font-display text-sm font-semibold tracking-[0.28em] text-muted-foreground">
+            PANTHEON
+          </span>
           <h1 className="mt-4 font-display text-2xl font-semibold tracking-tight">
-            Create your KC Meeting account
+            Create your account
           </h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
             Every participant has an organizational identity. All fields are required.
           </p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="mt-9 grid gap-5 rounded-2xl border border-border bg-card p-7 shadow-panel sm:grid-cols-2"
-        >
-          <div className="space-y-2">
-            <Label>Title</Label>
-            <Select value={form.title} onValueChange={(v) => set("title", v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select title" />
-              </SelectTrigger>
-              <SelectContent>
-                {TITLES.map((title) => (
-                  <SelectItem key={title} value={title}>
-                    {title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="gradient-frame mt-9 animate-pop-in">
+          <form
+            onSubmit={handleSubmit}
+            className="grid gap-5 rounded-[calc(var(--radius-3xl)-1.5px)] bg-card p-7 sm:grid-cols-2"
+          >
+            <Field label="Title">
+              <Select value={form.title} onValueChange={(v) => set("title", v)}>
+                <SelectTrigger className="border-0 bg-transparent p-0 shadow-none focus:ring-0">
+                  <SelectValue placeholder="Select title" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TITLES.map((title) => (
+                    <SelectItem key={title} value={title}>
+                      {title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
 
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone number</Label>
-            <Input
-              id="phone"
-              value={form.phone}
-              onChange={(e) => set("phone", e.target.value)}
-              placeholder="+234 800 000 0000"
-            />
-          </div>
+            <Field label="Phone number" htmlFor="phone">
+              <BareInput
+                id="phone"
+                value={form.phone}
+                onChange={(e) => set("phone", e.target.value)}
+                placeholder="+234 800 000 0000"
+              />
+            </Field>
 
-          <div className="space-y-2">
-            <Label htmlFor="firstName">First name</Label>
-            <Input
-              id="firstName"
-              value={form.firstName}
-              onChange={(e) => set("firstName", e.target.value)}
-            />
-          </div>
+            <Field label="First name" htmlFor="firstName">
+              <BareInput
+                id="firstName"
+                value={form.firstName}
+                onChange={(e) => set("firstName", e.target.value)}
+              />
+            </Field>
 
-          <div className="space-y-2">
-            <Label htmlFor="lastName">Last name</Label>
-            <Input
-              id="lastName"
-              value={form.lastName}
-              onChange={(e) => set("lastName", e.target.value)}
-            />
-          </div>
+            <Field label="Last name" htmlFor="lastName">
+              <BareInput
+                id="lastName"
+                value={form.lastName}
+                onChange={(e) => set("lastName", e.target.value)}
+              />
+            </Field>
 
-          <div className="space-y-2 sm:col-span-2">
-            <Label>Church</Label>
-            <Select value={form.churchId} onValueChange={(v) => set("churchId", v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select your church / branch" />
-              </SelectTrigger>
-              <SelectContent>
-                {churches.map((church) => (
-                  <SelectItem key={church.id} value={church.id}>
-                    {[church.name, church.branch].filter(Boolean).join(" — ")}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="sm:col-span-2">
+              <Field label="Church" htmlFor="churchName">
+                <BareInput
+                  id="churchName"
+                  value={form.churchName}
+                  onChange={(e) => set("churchName", e.target.value)}
+                  placeholder="Church name / branch"
+                />
+              </Field>
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="churchEmail">Church email</Label>
-            <Input
-              id="churchEmail"
-              type="email"
-              autoComplete="email"
-              value={form.churchEmail}
-              onChange={(e) => set("churchEmail", e.target.value)}
-              placeholder="user@church.org"
-            />
-          </div>
+            <Field label="Church email" htmlFor="churchEmail">
+              <BareInput
+                id="churchEmail"
+                type="email"
+                autoComplete="email"
+                value={form.churchEmail}
+                onChange={(e) => set("churchEmail", e.target.value)}
+                placeholder="user@church.org"
+              />
+            </Field>
 
-          <div className="space-y-2">
-            <Label htmlFor="kcHandle">KC Handle</Label>
-            <Input
-              id="kcHandle"
-              value={form.kcHandle}
-              onChange={(e) => set("kcHandle", e.target.value.toUpperCase())}
-              placeholder="KC123456"
-            />
-          </div>
+            <Field label="KC Handle" htmlFor="kcHandle">
+              <BareInput
+                id="kcHandle"
+                value={form.kcHandle}
+                onChange={(e) => set("kcHandle", e.target.value.toUpperCase())}
+                placeholder="KC123456"
+              />
+            </Field>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              value={form.password}
-              onChange={(e) => set("password", e.target.value)}
-            />
-          </div>
+            <Field label="Password" htmlFor="password">
+              <BareInput
+                id="password"
+                type="password"
+                autoComplete="new-password"
+                value={form.password}
+                onChange={(e) => set("password", e.target.value)}
+              />
+            </Field>
 
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm password</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              value={form.confirmPassword}
-              onChange={(e) => set("confirmPassword", e.target.value)}
-            />
-          </div>
+            <Field label="Confirm password" htmlFor="confirmPassword">
+              <BareInput
+                id="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                value={form.confirmPassword}
+                onChange={(e) => set("confirmPassword", e.target.value)}
+              />
+            </Field>
 
-          <Button type="submit" className="h-11 sm:col-span-2" disabled={loading}>
-            {loading ? <Loader2 className="size-4 animate-spin" /> : "CREATE ACCOUNT"}
-          </Button>
-        </form>
+            <Button
+              type="submit"
+              className="h-11 transition-transform hover:-translate-y-0.5 sm:col-span-2"
+              disabled={loading}
+            >
+              {loading ? <Loader2 className="size-4 animate-spin" /> : "CREATE ACCOUNT"}
+            </Button>
+          </form>
+        </div>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Already registered?{" "}
@@ -271,5 +249,33 @@ function RegisterPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+function Field({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="field-ring field-ring-focus space-y-1.5 rounded-xl border border-border bg-background p-3">
+      <Label htmlFor={htmlFor} className="text-xs uppercase tracking-wide text-muted-foreground">
+        {label}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+function BareInput(props: React.ComponentProps<typeof Input>) {
+  return (
+    <Input
+      {...props}
+      className="h-8 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+    />
   );
 }
