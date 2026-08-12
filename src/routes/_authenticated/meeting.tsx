@@ -1,6 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Hand, LogOut, MessageSquare, Send, HelpCircle, Users, Settings } from "lucide-react";
+import {
+  LogOut,
+  MessageSquare,
+  Send,
+  HelpCircle,
+  Users,
+  Settings,
+  Activity,
+  Clock,
+  CalendarDays,
+  Signal,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -10,26 +21,39 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MeetingPlayer } from "@/components/MeetingPlayer";
+import {
+  ParticipantGrid,
+  toParticipants,
+  type AttendanceRow,
+} from "@/components/ParticipantGrid";
 import { useSession } from "@/hooks/use-session";
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/lib/app-error";
-import { KINGSCHAT_LOGO_URL } from "@/lib/kingschat";
+import { formatDuration, secondsBetween, shortTime } from "@/lib/format";
 import type { Database } from "@/integrations/supabase/types";
 
 type Meeting = Database["public"]["Tables"]["meetings"]["Row"];
 type ChatMessage = Database["public"]["Tables"]["chat_messages"]["Row"];
 type Question = Database["public"]["Tables"]["questions"]["Row"];
 
+type ActivityEvent = {
+  id: string;
+  kind: "join" | "leave";
+  name: string;
+  at: string;
+  durationSeconds?: number;
+};
+
 export const Route = createFileRoute("/_authenticated/meeting")({
   head: () => ({
     meta: [
-      { title: "Live meeting — KC Meeting" },
+      { title: "Live meeting — Pantheon" },
       {
         name: "description",
         content:
-          "Watch the live broadcast, chat with participants, raise your hand and submit questions.",
+          "Watch the live broadcast, see who is in the meeting, chat with participants and submit questions.",
       },
-      { property: "og:title", content: "Live meeting — KC Meeting" },
+      { property: "og:title", content: "Live meeting — Pantheon" },
       {
         property: "og:description",
         content: "Watch the live broadcast and take part in the meeting.",
@@ -45,11 +69,16 @@ function MeetingPage() {
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [participants, setParticipants] = useState(0);
+  const [attendance, setAttendance] = useState<AttendanceRow[]>([]);
   const [chatDraft, setChatDraft] = useState("");
   const [questionDraft, setQuestionDraft] = useState("");
-  const [handRaised, setHandRaised] = useState(false);
+  const [now, setNow] = useState(() => new Date());
   const attendanceIdRef = useRef<string | null>(null);
+  const seenRef = useRef<{ joined: Set<string>; left: Set<string>; ready: boolean }>({
+    joined: new Set(),
+    left: new Set(),
+    ready: false,
+  });
 
   const identity = useMemo(
     () => ({
@@ -59,6 +88,20 @@ function MeetingPage() {
     }),
     [session.displayName, session.profile],
   );
+
+  /** Admins post as "Admin" only — no personal name or church. */
+  const chatIdentity = useMemo(
+    () =>
+      session.isAdmin
+        ? { display_name: "Admin", church_name: null }
+        : { display_name: identity.display_name, church_name: identity.church_name },
+    [session.isAdmin, identity],
+  );
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const loadMeeting = useCallback(async () => {
     const { data, error } = await supabase
@@ -109,7 +152,7 @@ function MeetingPage() {
         (payload) => {
           const row = payload.new as ChatMessage;
           if (payload.eventType === "INSERT" && row.status === "visible") {
-            setMessages((prev) => [...prev, row]);
+            setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
           } else if (payload.eventType === "UPDATE") {
             setMessages((prev) =>
               row.status === "visible"
@@ -147,7 +190,69 @@ function MeetingPage() {
     };
   }, [meeting?.id]);
 
-  // Attendance: open a session on join, heartbeat every 30s, close on leave.
+  // Attendance roster: everyone sees who joined and how long they stayed.
+  useEffect(() => {
+    if (!meeting) return;
+    const meetingId = meeting.id;
+    let cancelled = false;
+
+    async function refresh() {
+      const { data, error } = await supabase
+        .from("attendance_sessions")
+        .select("*")
+        .eq("meeting_id", meetingId)
+        .order("joined_at", { ascending: false })
+        .limit(400);
+      if (cancelled || error) return;
+      const rows = data ?? [];
+      announce(rows);
+      setAttendance(rows);
+    }
+
+    function announce(rows: AttendanceRow[]) {
+      const seen = seenRef.current;
+      for (const row of rows) {
+        const name = row.display_name?.trim() || "A participant";
+        if (!seen.joined.has(row.id)) {
+          seen.joined.add(row.id);
+          if (seen.ready) toast.success(`${name} joined the meeting`);
+        }
+        if (row.left_at && !seen.left.has(row.id)) {
+          seen.left.add(row.id);
+          if (seen.ready) {
+            toast(
+              `${name} left after ${formatDuration(secondsBetween(row.joined_at, row.left_at))}`,
+            );
+          }
+        }
+      }
+      seen.ready = true;
+    }
+
+    void refresh();
+    const poll = window.setInterval(() => void refresh(), 10_000);
+    const channel = supabase
+      .channel(`attendance-${meetingId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "attendance_sessions",
+          filter: `meeting_id=eq.${meetingId}`,
+        },
+        () => void refresh(),
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+      void supabase.removeChannel(channel);
+    };
+  }, [meeting?.id]);
+
+  // Own attendance session: open on join, heartbeat, close on leave.
   useEffect(() => {
     if (!meeting || !session.userId) return;
     const meetingId = meeting.id;
@@ -174,30 +279,40 @@ function MeetingPage() {
         .eq("id", id);
     }, 30_000);
 
-    const counter = window.setInterval(() => {
-      const since = new Date(Date.now() - 90_000).toISOString();
-      void supabase
-        .from("attendance_sessions")
-        .select("id", { count: "exact", head: true })
-        .eq("meeting_id", meetingId)
-        .is("left_at", null)
-        .gte("last_seen_at", since)
-        .then(({ count }) => setParticipants(count ?? 0));
-    }, 15_000);
-
     return () => {
       cancelled = true;
       window.clearInterval(heartbeat);
-      window.clearInterval(counter);
       const id = attendanceIdRef.current;
       if (id) {
         void supabase
           .from("attendance_sessions")
           .update({ left_at: new Date().toISOString(), status: "left_meeting" })
           .eq("id", id);
+        attendanceIdRef.current = null;
       }
     };
   }, [meeting?.id, session.userId, identity]);
+
+  const participants = useMemo(() => toParticipants(attendance), [attendance]);
+  const onlineCount = participants.filter((p) => p.online).length;
+
+  const activity = useMemo<ActivityEvent[]>(() => {
+    const events: ActivityEvent[] = [];
+    for (const row of attendance) {
+      const name = row.display_name?.trim() || "A participant";
+      events.push({ id: `${row.id}-join`, kind: "join", name, at: row.joined_at });
+      if (row.left_at) {
+        events.push({
+          id: `${row.id}-leave`,
+          kind: "leave",
+          name,
+          at: row.left_at,
+          durationSeconds: secondsBetween(row.joined_at, row.left_at),
+        });
+      }
+    }
+    return events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0, 80);
+  }, [attendance]);
 
   async function sendMessage(event: React.FormEvent) {
     event.preventDefault();
@@ -208,8 +323,7 @@ function MeetingPage() {
       meeting_id: meeting.id,
       user_id: session.userId,
       message,
-      display_name: identity.display_name,
-      church_name: identity.church_name,
+      ...chatIdentity,
     });
     if (error) showError(error, "Message not sent");
   }
@@ -230,30 +344,6 @@ function MeetingPage() {
     else toast.success("Question submitted to the host.");
   }
 
-  async function toggleHand() {
-    if (!meeting || !session.userId) return;
-    if (handRaised) {
-      const { error } = await supabase
-        .from("raised_hands")
-        .update({ status: "lowered" })
-        .eq("meeting_id", meeting.id)
-        .eq("user_id", session.userId)
-        .eq("status", "raised");
-      if (error) return showError(error, "Could not lower your hand");
-      setHandRaised(false);
-      return;
-    }
-    const { error } = await supabase.from("raised_hands").insert({
-      meeting_id: meeting.id,
-      user_id: session.userId,
-      display_name: identity.display_name,
-      church_name: identity.church_name,
-    });
-    if (error) return showError(error, "Could not raise your hand");
-    setHandRaised(true);
-    toast.success("Your hand is raised.");
-  }
-
   async function signOut() {
     const id = attendanceIdRef.current;
     if (id) {
@@ -261,29 +351,35 @@ function MeetingPage() {
         .from("attendance_sessions")
         .update({ left_at: new Date().toISOString(), status: "logged_out" })
         .eq("id", id);
+      attendanceIdRef.current = null;
     }
     await supabase.auth.signOut();
     navigate({ to: "/", replace: true });
   }
 
   const live = meeting?.status === "live";
+  const elapsed = meeting?.started_at ? secondsBetween(meeting.started_at) : null;
 
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-20 border-b border-border bg-card/85 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
-          <img src={KINGSCHAT_LOGO_URL} alt="" className="size-8 rounded-lg" />
-          <span className="font-display text-sm font-semibold tracking-tight">KC MEETING</span>
+          <img src="/pwa-icon-192.png" alt="" className="size-8 rounded-lg" />
+          <span className="font-display text-sm font-semibold tracking-[0.24em]">PANTHEON</span>
           {live && (
             <Badge className="ml-1 gap-1.5 bg-live text-live-foreground">
-              <span className="size-1.5 animate-pulse rounded-full bg-live-foreground" />
+              <span className="size-1.5 animate-live-pulse rounded-full bg-live-foreground" />
               LIVE
             </Badge>
           )}
           <div className="ml-auto flex items-center gap-2">
             <span className="hidden items-center gap-1.5 text-sm text-muted-foreground sm:flex">
               <Users className="size-4" />
-              {participants}
+              {onlineCount}
+            </span>
+            <span className="hidden items-center gap-1.5 text-sm tabular-nums text-muted-foreground md:flex">
+              <Clock className="size-4" />
+              {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </span>
             {session.isStaff && (
               <Button variant="outline" size="sm" asChild>
@@ -308,42 +404,55 @@ function MeetingPage() {
             embedUrl={meeting?.embed_url ?? null}
             live={Boolean(live)}
           />
+
           <div className="rounded-2xl border border-border bg-card p-5 shadow-panel">
             <h1 className="font-display text-xl font-semibold tracking-tight">
               {meeting?.title ?? "No meeting scheduled"}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {meeting?.host_name ? `Hosted by ${meeting.host_name}` : "Awaiting host assignment"}
-              {meeting?.scheduled_at
-                ? ` • ${new Date(meeting.scheduled_at).toLocaleString()}`
-                : ""}
             </p>
             {meeting?.description && (
               <p className="mt-3 text-sm leading-relaxed text-foreground/80">
                 {meeting.description}
               </p>
             )}
-            {meeting?.hand_raise_enabled && (
-              <Button
-                variant={handRaised ? "default" : "outline"}
-                className="mt-5"
-                onClick={toggleHand}
-              >
-                <Hand className="size-4" />
-                {handRaised ? "Lower hand" : "Raise hand"}
-              </Button>
-            )}
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <Stat
+                icon={CalendarDays}
+                label="Scheduled"
+                value={
+                  meeting?.scheduled_at
+                    ? new Date(meeting.scheduled_at).toLocaleString([], {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })
+                    : "—"
+                }
+              />
+              <Stat
+                icon={Signal}
+                label="Broadcast time"
+                value={elapsed !== null && live ? formatDuration(elapsed) : "Not started"}
+              />
+              <Stat icon={Users} label="In meeting" value={`${onlineCount} of ${participants.length}`} />
+            </div>
           </div>
+
+          <ParticipantGrid participants={participants} />
         </section>
 
         <aside className="rounded-2xl border border-border bg-card shadow-panel">
           <Tabs defaultValue="chat" className="flex h-[calc(100vh-9rem)] flex-col">
-            <TabsList className="m-3 grid grid-cols-2">
+            <TabsList className="m-3 grid grid-cols-3">
               <TabsTrigger value="chat">
                 <MessageSquare className="size-4" /> Chat
               </TabsTrigger>
               <TabsTrigger value="questions">
                 <HelpCircle className="size-4" /> Q&amp;A
+              </TabsTrigger>
+              <TabsTrigger value="activity">
+                <Activity className="size-4" /> Activity
               </TabsTrigger>
             </TabsList>
 
@@ -355,19 +464,35 @@ function MeetingPage() {
                       No messages yet.
                     </p>
                   )}
-                  {messages.map((message) => (
-                    <div key={message.id} className="rounded-xl bg-muted px-3 py-2">
-                      <p className="text-xs font-medium text-primary">
-                        {message.display_name}
-                        {message.church_name && (
-                          <span className="ml-1 font-normal text-muted-foreground">
-                            • {message.church_name}
+                  {messages.map((message) => {
+                    const isAdminMessage = message.display_name === "Admin";
+                    return (
+                      <div
+                        key={message.id}
+                        className={`animate-pop-in rounded-xl px-3 py-2 ${
+                          isAdminMessage
+                            ? "border border-primary/30 bg-primary/8"
+                            : "bg-muted"
+                        }`}
+                      >
+                        <p className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                          {message.display_name}
+                          {isAdminMessage && (
+                            <Badge className="h-4 px-1.5 text-[9px] uppercase">staff</Badge>
+                          )}
+                          {!isAdminMessage && message.church_name && (
+                            <span className="font-normal text-muted-foreground">
+                              • {message.church_name}
+                            </span>
+                          )}
+                          <span className="ml-auto font-normal text-muted-foreground">
+                            {shortTime(message.created_at)}
                           </span>
-                        )}
-                      </p>
-                      <p className="mt-0.5 text-sm leading-relaxed">{message.message}</p>
-                    </div>
-                  ))}
+                        </p>
+                        <p className="mt-0.5 text-sm leading-relaxed">{message.message}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               </ScrollArea>
               <form onSubmit={sendMessage} className="flex gap-2 border-t border-border p-3">
@@ -421,9 +546,62 @@ function MeetingPage() {
                 </Button>
               </form>
             </TabsContent>
+
+            <TabsContent value="activity" className="flex min-h-0 flex-1 flex-col">
+              <ScrollArea className="min-h-0 flex-1 px-4">
+                <div className="space-y-2 pb-4">
+                  {activity.length === 0 && (
+                    <p className="pt-6 text-center text-sm text-muted-foreground">
+                      Join and leave events will appear here.
+                    </p>
+                  )}
+                  {activity.map((event) => (
+                    <div
+                      key={event.id}
+                      className="flex items-start gap-3 rounded-xl border border-border px-3 py-2"
+                    >
+                      <span
+                        className={`mt-1.5 size-2 shrink-0 rounded-full ${
+                          event.kind === "join" ? "bg-success" : "bg-muted-foreground/60"
+                        }`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm">
+                          <span className="font-medium">{event.name}</span>{" "}
+                          {event.kind === "join"
+                            ? "joined the meeting"
+                            : `left after ${formatDuration(event.durationSeconds ?? 0)}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{shortTime(event.at)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </TabsContent>
           </Tabs>
         </aside>
       </main>
+    </div>
+  );
+}
+
+function Stat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Users;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-background px-3 py-2.5">
+      <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
+        <Icon className="size-3.5" />
+        {label}
+      </p>
+      <p className="mt-1 truncate text-sm font-semibold">{value}</p>
     </div>
   );
 }
