@@ -7,7 +7,9 @@ import type { Database } from "@/integrations/supabase/types";
 
 export type AttendanceRow = Database["public"]["Tables"]["attendance_sessions"]["Row"];
 
-const PRESENCE_WINDOW_MS = 90_000;
+// Heartbeats land every 15s, so a 45s window keeps "online" accurate while the
+// participant is still on the meeting page.
+const PRESENCE_WINDOW_MS = 45_000;
 
 export type ParticipantView = {
   id: string;
@@ -52,7 +54,7 @@ export function toParticipants(rows: AttendanceRow[]): ParticipantView[] {
 export function ParticipantGrid({ participants }: { participants: ParticipantView[] }) {
   const [, setTick] = useState(0);
   useEffect(() => {
-    const timer = window.setInterval(() => setTick((t) => t + 1), 30_000);
+    const timer = window.setInterval(() => setTick((t) => t + 1), 5_000);
     return () => window.clearInterval(timer);
   }, []);
 

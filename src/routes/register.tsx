@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PasswordField } from "@/components/PasswordField";
 import { supabase } from "@/integrations/supabase/client";
 import { checkKcHandle } from "@/lib/auth.functions";
 import { showError } from "@/lib/app-error";
@@ -212,22 +213,22 @@ function RegisterPage() {
             </Field>
 
             <Field label="Password" htmlFor="password">
-              <BareInput
+              <PasswordField
                 id="password"
-                type="password"
                 autoComplete="new-password"
                 value={form.password}
                 onChange={(e) => set("password", e.target.value)}
+                className="h-8 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
               />
             </Field>
 
             <Field label="Confirm password" htmlFor="confirmPassword">
-              <BareInput
+              <PasswordField
                 id="confirmPassword"
-                type="password"
                 autoComplete="new-password"
                 value={form.confirmPassword}
                 onChange={(e) => set("confirmPassword", e.target.value)}
+                className="h-8 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
               />
             </Field>
 

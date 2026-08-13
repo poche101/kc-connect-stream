@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { showError } from "@/lib/app-error";
-import { KINGSCHAT_LOGO_URL } from "@/lib/kingschat";
 
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({
@@ -52,7 +51,9 @@ function ForgotPasswordPage() {
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-12">
       <div className="w-full max-w-sm text-center">
-        <img src={KINGSCHAT_LOGO_URL} alt="" className="mx-auto size-14 rounded-2xl" />
+        <span className="font-display text-sm font-semibold tracking-[0.28em] text-muted-foreground">
+          PANTHEON
+        </span>
         {sent ? (
           <>
             <MailCheck className="mx-auto mt-6 size-8 text-success" />
