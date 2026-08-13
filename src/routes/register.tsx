@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/select";
 import { PasswordField } from "@/components/PasswordField";
 import { supabase } from "@/integrations/supabase/client";
-import { checkKcHandle } from "@/lib/auth.functions";
 import { showError } from "@/lib/app-error";
 import { toast } from "sonner";
 
@@ -88,8 +87,14 @@ function RegisterPage() {
 
     setLoading(true);
     try {
-      const { available } = await checkKcHandle({ data: { kcHandle: form.kcHandle.trim() } });
-      if (!available) {
+      // Check KC handle directly from the client side instead of using a server function
+      const { data: existingUser, error: checkError } = await supabase
+        .from("profiles")
+        .select("kc_handle")
+        .eq("kc_handle", form.kcHandle.trim())
+        .maybeSingle();
+
+      if (existingUser) {
         showError("That KC Handle is already taken. Please choose another.", "KC Handle unavailable");
         return;
       }
@@ -113,8 +118,8 @@ function RegisterPage() {
 
       toast.success("Account created. Taking you to your meeting…");
       navigate({ to: "/meeting", replace: true });
-    } catch (error) {
-      showError(error, "Registration failed");
+    } catch (error: any) {
+      showError(error.message || error, "Registration failed");
     } finally {
       setLoading(false);
     }

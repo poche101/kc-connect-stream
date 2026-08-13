@@ -1,8 +1,10 @@
+
 {
   "name": "tanstack_start_ts",
   "private": true,
   "sideEffects": false,
   "type": "module",
+    
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
