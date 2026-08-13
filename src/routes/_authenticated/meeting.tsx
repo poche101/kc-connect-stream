@@ -252,7 +252,9 @@ function MeetingPage() {
     };
   }, [meeting?.id]);
 
-  // Own attendance session: open on join, heartbeat, close on leave.
+  // Own attendance record: exactly one row per person per meeting. It stays
+  // "in meeting" for as long as this page is open (heartbeat) and is closed the
+  // moment the participant leaves the page.
   useEffect(() => {
     if (!meeting || !session.userId) return;
     const meetingId = meeting.id;
@@ -260,9 +262,21 @@ function MeetingPage() {
     let cancelled = false;
 
     async function open() {
+      const nowIso = new Date().toISOString();
       const { data, error } = await supabase
         .from("attendance_sessions")
-        .insert({ meeting_id: meetingId, user_id: userId, status: "in_meeting", ...identity })
+        .upsert(
+          {
+            meeting_id: meetingId,
+            user_id: userId,
+            status: "in_meeting",
+            joined_at: nowIso,
+            last_seen_at: nowIso,
+            left_at: null,
+            ...identity,
+          },
+          { onConflict: "meeting_id,user_id" },
+        )
         .select("id")
         .maybeSingle();
       if (error || cancelled) return;
@@ -270,26 +284,39 @@ function MeetingPage() {
     }
     void open();
 
-    const heartbeat = window.setInterval(() => {
+    function beat() {
       const id = attendanceIdRef.current;
       if (!id) return;
       void supabase
         .from("attendance_sessions")
-        .update({ last_seen_at: new Date().toISOString(), status: "in_meeting" })
+        .update({ last_seen_at: new Date().toISOString(), status: "in_meeting", left_at: null })
         .eq("id", id);
-    }, 30_000);
+    }
+
+    function close(status: "left_meeting" | "idle") {
+      const id = attendanceIdRef.current;
+      if (!id) return;
+      void supabase
+        .from("attendance_sessions")
+        .update({ left_at: new Date().toISOString(), status })
+        .eq("id", id);
+    }
+
+    const heartbeat = window.setInterval(beat, 15_000);
+    // Closing the tab or navigating away marks the participant as having left.
+    const onHide = () => {
+      if (document.visibilityState === "hidden") close("left_meeting");
+      else beat();
+    };
+    window.addEventListener("pagehide", () => close("left_meeting"));
+    document.addEventListener("visibilitychange", onHide);
 
     return () => {
       cancelled = true;
       window.clearInterval(heartbeat);
-      const id = attendanceIdRef.current;
-      if (id) {
-        void supabase
-          .from("attendance_sessions")
-          .update({ left_at: new Date().toISOString(), status: "left_meeting" })
-          .eq("id", id);
-        attendanceIdRef.current = null;
-      }
+      document.removeEventListener("visibilitychange", onHide);
+      close("left_meeting");
+      attendanceIdRef.current = null;
     };
   }, [meeting?.id, session.userId, identity]);
 
