@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { loginWithIdentifier } from "@/lib/auth.functions";
 import { showError } from "@/lib/app-error";
+import { PasswordField } from "@/components/PasswordField";
 import {
   KINGSCHAT_LOGO_URL,
   buildKingsChatAuthUrl,
@@ -184,21 +185,19 @@ function LoginPage() {
               )}
 
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-                {!remembered && (
-                  <div className="field-ring field-ring-focus space-y-2 rounded-xl border border-border bg-background p-3">
-                    <Label htmlFor="identifier" className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Church Email / KC Handle
-                    </Label>
-                    <Input
-                      id="identifier"
-                      autoComplete="username"
-                      placeholder="user@church.org or KC123456"
-                      value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
-                      className="border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
-                    />
-                  </div>
-                )}
+                <div className="field-ring field-ring-focus space-y-2 rounded-xl border border-border bg-background p-3">
+                  <Label htmlFor="identifier" className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Church Email / KC Handle
+                  </Label>
+                  <Input
+                    id="identifier"
+                    autoComplete="username"
+                    placeholder="user@church.org or KC123456"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    className="border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+                  />
+                </div>
 
                 <div className="field-ring field-ring-focus space-y-2 rounded-xl border border-border bg-background p-3">
                   <Label htmlFor="password" className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -206,9 +205,8 @@ function LoginPage() {
                   </Label>
                   <div className="flex items-center gap-2">
                     <Lock className="size-4 shrink-0 text-muted-foreground" />
-                    <Input
+                    <PasswordField
                       id="password"
-                      type="password"
                       autoComplete="current-password"
                       placeholder="••••••••••"
                       value={password}
@@ -217,6 +215,7 @@ function LoginPage() {
                     />
                   </div>
                 </div>
+
 
                 <Button
                   type="submit"

@@ -16,6 +16,7 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedMeetingRouteImport } from './routes/_authenticated/meeting'
+import { Route as AuthKingschatRouteImport } from './routes/auth/kingschat'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -51,6 +52,11 @@ const AuthenticatedMeetingRoute = AuthenticatedMeetingRouteImport.update({
   path: '/meeting',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthKingschatRoute = AuthKingschatRouteImport.update({
+  id: '/auth/kingschat',
+  path: '/auth/kingschat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/meeting': typeof AuthenticatedMeetingRoute
+  '/auth/kingschat': typeof AuthKingschatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/meeting': typeof AuthenticatedMeetingRoute
+  '/auth/kingschat': typeof AuthKingschatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/meeting': typeof AuthenticatedMeetingRoute
+  '/auth/kingschat': typeof AuthKingschatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/admin'
     | '/meeting'
+    | '/auth/kingschat'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/admin'
     | '/meeting'
+    | '/auth/kingschat'
   id:
     | '__root__'
     | '/'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_authenticated/admin'
     | '/_authenticated/meeting'
+    | '/auth/kingschat'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -112,6 +124,7 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   RegisterRoute: typeof RegisterRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  AuthKingschatRoute: typeof AuthKingschatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -165,6 +178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMeetingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/auth/kingschat': {
+      id: '/auth/kingschat'
+      path: '/auth/kingschat'
+      fullPath: '/auth/kingschat'
+      preLoaderRoute: typeof AuthKingschatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -187,6 +207,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   RegisterRoute: RegisterRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  AuthKingschatRoute: AuthKingschatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
