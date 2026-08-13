@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { loginWithIdentifier } from "@/lib/auth.functions";
 import { showError } from "@/lib/app-error";
 import { PasswordField } from "@/components/PasswordField";
+import kingsChatLogo from '@/assets/kingschat-logo.png';
 import {
   KINGSCHAT_LOGO_URL,
   buildKingsChatAuthUrl,
@@ -245,11 +246,11 @@ function LoginPage() {
                 className="h-11 w-full gap-2.5 transition-transform hover:-translate-y-0.5"
                 onClick={handleKingsChat}
               >
-                <img
-                  src={KINGSCHAT_LOGO_URL}
-                  alt="KingsChat"
-                  className="size-8 shrink-0 rounded-lg object-contain"
-                />
+               <img
+  src={kingsChatLogo}
+  alt="KingsChat"
+  className="size-15 shrink-0 rounded-lg object-contain"
+/>
                 Continue with KingsChat
               </Button>
 

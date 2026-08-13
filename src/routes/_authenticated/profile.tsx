@@ -76,18 +76,29 @@ function ProfilePage() {
     }
     setSaving(true);
     try {
+      // Use .upsert instead of .update to guarantee record creation/modification
       const { error } = await supabase
         .from("profiles")
-        .update({
+        .upsert({
+          id: session.userId,
           title: form.title || null,
           first_name: form.firstName.trim(),
           last_name: form.lastName.trim(),
           phone: form.phone.trim() || null,
           church_name: form.churchName.trim() || null,
           kc_handle: form.kcHandle.trim(),
-        })
-        .eq("id", session.userId);
+          updated_at: new Date().toISOString(),
+        });
+
       if (error) throw error;
+
+      // Re-sync session state if your hook provides a refetch/refresh method
+      if ("refetch" in session && typeof session.refetch === "function") {
+        await session.refetch();
+      } else if ("refresh" in session && typeof session.refresh === "function") {
+        await session.refresh();
+      }
+
       toast.success("Your profile has been updated.");
       navigate({ to: "/meeting" });
     } catch (error) {
@@ -140,20 +151,23 @@ function ProfilePage() {
             onSubmit={save}
             className="grid gap-5 rounded-[calc(var(--radius-3xl)-1.5px)] bg-card p-7 sm:grid-cols-2"
           >
-            <Field label="Title">
-              <Select value={form.title} onValueChange={(v) => set("title", v)}>
-                <SelectTrigger className="border-0 bg-transparent p-0 shadow-none focus:ring-0">
-                  <SelectValue placeholder="Select title" />
-                </SelectTrigger>
-                <SelectContent>
-                  {TITLES.map((title) => (
-                    <SelectItem key={title} value={title}>
-                      {title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+          <Field label="Title">
+            <Select 
+              value={TITLES.includes(form.title) ? form.title : ""} 
+              onValueChange={(v) => set("title", v)}
+            >
+              <SelectTrigger className="border-0 bg-transparent p-0 shadow-none focus:ring-0">
+                <SelectValue placeholder="Select title" />
+              </SelectTrigger>
+              <SelectContent>
+                {TITLES.map((title) => (
+                  <SelectItem key={title} value={title}>
+                    {title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
 
             <Field label="Phone number" htmlFor="phone">
               <BareInput

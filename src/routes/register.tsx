@@ -187,12 +187,12 @@ function RegisterPage() {
                   id="churchName"
                   value={form.churchName}
                   onChange={(e) => set("churchName", e.target.value)}
-                  placeholder="Church name / branch"
+                  placeholder="Church name"
                 />
               </Field>
             </div>
 
-            <Field label="Church email" htmlFor="churchEmail">
+            <Field label="Email" htmlFor="churchEmail">
               <BareInput
                 id="churchEmail"
                 type="email"

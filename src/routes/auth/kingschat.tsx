@@ -34,28 +34,53 @@ function KingsChatCallback() {
     async function complete() {
       const { token, error } = readKingsChatToken(window.location.href);
       if (!token) {
-        setFailed(error ?? "KingsChat did not return a sign-in token.");
+        if (active) setFailed(error ?? "KingsChat did not return a sign-in token.");
         return;
       }
+
       try {
         const result = await signInWithKingsChat({ data: { accessToken: token } });
-        if (!result.ok) {
-          setFailed(result.error);
+
+        if (!result || !result.ok) {
+          // Extract user-friendly message without triggering TypeScript 'never' narrowing
+          const rawError = result?.error;
+          let errorMessage = "KingsChat authentication failed. Please try again.";
+
+          if (typeof rawError === "string") {
+            errorMessage = rawError;
+          } else if (rawError && typeof rawError === "object" && "message" in rawError) {
+            errorMessage = String((rawError as { message: unknown }).message);
+          }
+
+          if (active) setFailed(errorMessage);
           return;
         }
+
+        if (!result.access_token || !result.refresh_token) {
+          if (active) setFailed("Invalid session response received from authentication service.");
+          return;
+        }
+
         const { error: sessionError } = await supabase.auth.setSession({
           access_token: result.access_token,
           refresh_token: result.refresh_token,
         });
+
         if (sessionError) throw sessionError;
-        if (active) navigate({ to: "/meeting", replace: true });
+
+        if (active) {
+          navigate({ to: "/meeting", replace: true });
+        }
       } catch (cause) {
         showError(cause, "KingsChat sign in failed");
-        setFailed("We could not complete your KingsChat sign in.");
+        if (active) {
+          setFailed("We could not complete your KingsChat sign in.");
+        }
       }
     }
 
     void complete();
+
     return () => {
       active = false;
     };
