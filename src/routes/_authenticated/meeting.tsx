@@ -11,6 +11,7 @@ import {
   Clock,
   CalendarDays,
   Signal,
+  UserCog,
 } from "lucide-react";
 import { toast } from "sonner";
 
