@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
-import { Loader2, PictureInPicture2, Volume2, VolumeX, Maximize2 } from "lucide-react";
+import { Loader2, PictureInPicture2, Volume2, VolumeX, Maximize2, Minimize2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,12 +28,15 @@ export function MeetingPlayer({
   embedUrl: string | null;
   live: boolean;
 }) {
+  const shellRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [levels, setLevels] = useState<Level[]>([]);
   const [quality, setQuality] = useState("auto");
   const [muted, setMuted] = useState(true);
   const [buffering, setBuffering] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [pipActive, setPipActive] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -67,6 +70,22 @@ export function MeetingPlayer({
     return undefined;
   }, [streamUrl]);
 
+  // Keep the fullscreen / PiP buttons in sync with the browser's real state.
+  useEffect(() => {
+    const video = videoRef.current;
+    const onFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    const onEnterPip = () => setPipActive(true);
+    const onLeavePip = () => setPipActive(false);
+    document.addEventListener("fullscreenchange", onFullscreen);
+    video?.addEventListener("enterpictureinpicture", onEnterPip);
+    video?.addEventListener("leavepictureinpicture", onLeavePip);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFullscreen);
+      video?.removeEventListener("enterpictureinpicture", onEnterPip);
+      video?.removeEventListener("leavepictureinpicture", onLeavePip);
+    };
+  }, [streamUrl]);
+
   function changeQuality(value: string) {
     setQuality(value);
     const hls = hlsRef.current;
@@ -77,11 +96,57 @@ export function MeetingPlayer({
   async function togglePip() {
     const video = videoRef.current;
     if (!video) return;
-    try {
-      if (document.pictureInPictureElement) await document.exitPictureInPicture();
-      else await video.requestPictureInPicture();
-    } catch {
+    if (!("pictureInPictureEnabled" in document) || !document.pictureInPictureEnabled) {
       showError("Picture-in-picture is not available in this browser.", "Not supported");
+      return;
+    }
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+        return;
+      }
+      // PiP needs decoded video frames — start playback first.
+      if (video.readyState < 1) {
+        showError("Picture-in-picture is ready once the broadcast starts playing.", "Not ready yet");
+        return;
+      }
+      if (video.paused) await video.play().catch(() => undefined);
+      await video.requestPictureInPicture();
+    } catch {
+      showError(
+        "Picture-in-picture was blocked. Tap the video once, then try again.",
+        "Picture-in-picture unavailable",
+      );
+    }
+  }
+
+  async function toggleFullscreen() {
+    const shell = shellRef.current;
+    if (!shell) return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+      if (document.pictureInPictureElement) await document.exitPictureInPicture().catch(() => undefined);
+
+      if (shell.requestFullscreen) {
+        await shell.requestFullscreen();
+        return;
+      }
+      const legacy = videoRef.current as
+        | (HTMLVideoElement & { webkitEnterFullscreen?: () => void })
+        | null;
+      if (legacy?.webkitEnterFullscreen) {
+        legacy.webkitEnterFullscreen();
+        return;
+      }
+      showError("Fullscreen is not available in this browser.", "Not supported");
+    } catch {
+      showError(
+        "Fullscreen was blocked by the browser. Try again, or use your browser's fullscreen control.",
+        "Fullscreen unavailable",
+      );
     }
   }
 
@@ -113,8 +178,11 @@ export function MeetingPlayer({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-stage-border bg-stage">
-      <div className="relative aspect-video w-full">
+    <div
+      ref={shellRef}
+      className="overflow-hidden rounded-2xl border border-stage-border bg-stage"
+    >
+      <div className={isFullscreen ? "relative h-[calc(100vh-3.5rem)] w-full" : "relative aspect-video w-full"}>
         <video
           ref={videoRef}
           playsInline
@@ -148,17 +216,13 @@ export function MeetingPlayer({
           </SelectContent>
         </Select>
         <div className="ml-auto flex gap-2">
-          <Button variant="stage" size="sm" onClick={togglePip}>
+          <Button variant="stage" size="sm" onClick={() => void togglePip()}>
             <PictureInPicture2 className="size-4" />
-            PiP
+            {pipActive ? "Exit PiP" : "PiP"}
           </Button>
-          <Button
-            variant="stage"
-            size="sm"
-            onClick={() => void videoRef.current?.requestFullscreen().catch(() => undefined)}
-          >
-            <Maximize2 className="size-4" />
-            Fullscreen
+          <Button variant="stage" size="sm" onClick={() => void toggleFullscreen()}>
+            {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+            {isFullscreen ? "Exit" : "Fullscreen"}
           </Button>
         </div>
       </div>
