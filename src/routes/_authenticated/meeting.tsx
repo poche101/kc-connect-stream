@@ -408,6 +408,12 @@ function MeetingPage() {
               <Clock className="size-4" />
               {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </span>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/profile">
+                <UserCog className="size-4" />
+                <span className="hidden sm:inline">Profile</span>
+              </Link>
+            </Button>
             {session.isStaff && (
               <Button variant="outline" size="sm" asChild>
                 <Link to="/admin">
