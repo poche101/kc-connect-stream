@@ -85,8 +85,9 @@ export const signInWithKingsChat = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    // Updated table query from 'profiles' to 'users'
     const { data: existing } = await supabaseAdmin
-      .from("profiles")
+      .from("users")
       .select("id")
       .eq("church_email", email)
       .maybeSingle();

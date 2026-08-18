@@ -124,7 +124,6 @@ function RegisterPage() {
       setLoading(false);
     }
   }
-
   return (
     <main className="min-h-screen bg-background px-5 py-12">
       <div className="mx-auto w-full max-w-2xl">
