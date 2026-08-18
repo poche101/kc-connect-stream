@@ -509,7 +509,7 @@ function MeetingPage() {
                             : "bg-muted"
                         }`}
                       >
-                        <p className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
                           {message.display_name}
                           {isAdminMessage && (
                             <Badge className="h-4 px-1.5 text-[9px] uppercase">staff</Badge>
@@ -522,7 +522,7 @@ function MeetingPage() {
                           <span className="ml-auto font-normal text-muted-foreground">
                             {shortTime(message.created_at)}
                           </span>
-                        </p>
+                        </div>
                         <p className="mt-0.5 text-sm leading-relaxed">{message.message}</p>
                       </div>
                     );
